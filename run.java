@@ -58,8 +58,8 @@ public class run implements Callable {
         if (existingRefreshToken != null) {
             System.out.println("Loaded existing refresh token: " + existingRefreshToken);
         } else {
-            promptForRefreshCode();
-            return 1;
+            existingRefreshToken = promptForRefreshCode();
+            saveRefreshTokenToFile(existingRefreshToken);
         }
 
 
@@ -112,7 +112,7 @@ public class run implements Callable {
         return 0;
     }
 
-    private void promptForRefreshCode() {
+    private String promptForRefreshCode() {
         // Step 1: Print authorization URL
         String authUrl = String.format(
                 "https://account.withings.com/oauth2_user/authorize2" +
@@ -124,8 +124,10 @@ public class run implements Callable {
                 clientId, REDIRECT_URI
         );
 
-        System.out.println("Refresh Code parameter (\"-r\", \"--refresh-token\") missing. Visit this URL to get the authorization code if you don't have one. You will need to copy the 'code' parameter from the URL of the final page in the flow");
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Refresh code missing. Visit this URL to get the authorization code. You will need to copy the 'code' parameter from the URL of the final page in the flow. Finally paste it into the prompt bellow and it will be saved in .refresh_token file.");
         System.out.println(authUrl);
+        return scanner.nextLine();
     }
 
     private static String loadRefreshTokenFromFile() {
