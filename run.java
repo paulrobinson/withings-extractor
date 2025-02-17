@@ -44,6 +44,9 @@ public class run implements Callable {
     @CommandLine.Option(names = {"-s", "--client-secret"}, description = "Client Secret", required = true)
     private String clientSecret;
 
+    @CommandLine.Option(names = {"-f", "--output-format"}, description = "Output Format [CVE|PRETTY]", required = false)
+    private String outputFormat = "PRETTY";
+
     public static void main(String... args) {
         int exitCode = new CommandLine(new run()).execute(args);
         System.exit(exitCode);
@@ -160,7 +163,8 @@ public class run implements Callable {
     public void fetchAndAggregateMeasurements(String accessToken) {
         String url = "https://wbsapi.withings.net/measure?action=getmeas";
         long now = Instant.now().getEpochSecond();
-        long threeWeeksAgo = now - (21 * 24 * 60 * 60); // 21 days in seconds
+        //long threeWeeksAgo = now - (21 * 24 * 60 * 60); // 21 days in seconds
+        long threeWeeksAgo = now - (386 * 24 * 60 * 60); // 21 days in seconds
 
         Map<String, String> params = new HashMap<>();
         params.put("access_token", accessToken);
@@ -175,7 +179,6 @@ public class run implements Callable {
 
             try (CloseableHttpResponse response = client.execute(post)) {
                 String rawResponse = readResponse(response);
-                //System.out.println("Raw Response: " + rawResponse);
 
                 if (response.getCode() != 200) {
                     System.err.println("Error: HTTP status " + response.getCode());
@@ -205,10 +208,8 @@ public class run implements Callable {
                         switch (type) {
                             case 1:
                                 weight = actualValue; // Weight in kg
-                                //System.out.println("Weight: " + weight);
                                 break;
                             case 8:
-                                System.out.println(actualValue);
                                 fatKg = actualValue; // allready in kg
                                 break;
                             case 76:
@@ -232,6 +233,10 @@ public class run implements Callable {
 
                 Map<String, List<DataPoint>> sortedGroupedByWeek = new TreeMap<>(groupedByWeek);
 
+                if (outputFormat.equals("CVE")) {
+                        // Print the header
+                        System.out.println("week,avg_weight,avg_fat,avg_muscle");
+                }
                 sortedGroupedByWeek.forEach((week, points) -> {
                     // Calculate averages for the current week
                     double avgWeight = points.stream()
@@ -259,22 +264,30 @@ public class run implements Callable {
 
 
 
-                    // Print the delta compared to the previous week
-                    if (previousWeight.get() != null) {
-                        // Print the week and the values
-                        System.out.printf("Week of %s - Avg Weight: %.2f kg (%.2f), Avg Fat: %.2f kg (%.2f), Avg Muscle: %.2f kg (%.2f)%n",
-                                week, avgWeight, deltaWeight, avgFatKg, deltaFatKg, avgMuscleKg,deltaMuscleKg);
-                    } else {
-                        // Print the week and the values
-                        System.out.printf("Week of %s - Avg Weight: %.2f kg, Avg Fat: %.2f kg, Avg Muscle: %.2f kg%n",
-                                week, avgWeight, avgFatKg, avgMuscleKg);
-                    }
+                    if (outputFormat.equals("CVE")) {
+                        // Print the week and the values in CSV format
+                        System.out.printf("%s,%.2f,%.2f,%.2f%n", week, avgWeight, avgFatKg, avgMuscleKg);
 
-                    // Update the previous week's values for the next iteration
-                    previousWeight.set(avgWeight);
-                    previousFatKg.set(avgFatKg);
-                    previousMuscleKg.set(avgMuscleKg);
+                    } else {
+
+                        // Print the delta compared to the previous week
+                        if (previousWeight.get() != null) {
+                            // Print the week and the values
+                            System.out.printf("Week of %s - Avg Weight: %.2f kg (%.2f), Avg Fat: %.2f kg (%.2f), Avg Muscle: %.2f kg (%.2f)%n",
+                                    week, avgWeight, deltaWeight, avgFatKg, deltaFatKg, avgMuscleKg, deltaMuscleKg);
+                        } else {
+                            // Print the week and the values
+                            System.out.printf("Week of %s - Avg Weight: %.2f kg, Avg Fat: %.2f kg, Avg Muscle: %.2f kg%n",
+                                    week, avgWeight, avgFatKg, avgMuscleKg);
+                        }
+
+                        // Update the previous week's values for the next iteration
+                        previousWeight.set(avgWeight);
+                        previousFatKg.set(avgFatKg);
+                        previousMuscleKg.set(avgMuscleKg);
+                    }
                 });
+
 
 
 
